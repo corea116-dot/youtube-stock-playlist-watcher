@@ -2,8 +2,8 @@
 
 특정 YouTube 재생목록에 새 영상이 올라왔는지 확인하고, 영상에서 언급된 종목/섹터/이유를 정리해 이메일로 보내기 위한 Python 자동화 프로젝트입니다.
 
-> 현재 단계는 **환경변수 설정과 처리 기록 파일 준비 단계**입니다.  
-> 아직 YouTube 연결, OpenAI 분석, 이메일 발송, GitHub Actions 자동 실행 기능은 구현되어 있지 않습니다.
+> 현재 단계는 **YouTube 재생목록의 최근 영상 목록 조회 기능 준비 단계**입니다.  
+> 아직 자막 수집, OpenAI 분석, 이메일 발송, GitHub Actions 자동 실행 기능은 구현되어 있지 않습니다.
 
 ## 이 프로젝트의 목표
 
@@ -36,7 +36,7 @@ API 키, 이메일 비밀번호, 토큰 같은 비밀값은 코드에 직접 넣
 
 | 이름 | 역할 | 필수 여부 |
 | --- | --- | --- |
-| `YOUTUBE_API_KEY` | 나중에 YouTube Data API를 사용할 때 필요한 키 | 필수 |
+| `YOUTUBE_API_KEY` | YouTube Data API로 재생목록 영상을 읽을 때 필요한 키 | 필수 |
 | `OPENAI_API_KEY` | 나중에 영상 내용을 요약할 때 사용할 OpenAI API 키 | 필수 |
 | `PLAYLIST_ID` | 감시할 YouTube 재생목록 ID | 필수 |
 | `SMTP_HOST` | 이메일을 보낼 SMTP 서버 주소 | 필수 |
@@ -48,6 +48,38 @@ API 키, 이메일 비밀번호, 토큰 같은 비밀값은 코드에 직접 넣
 | `OPENAI_MODEL` | 나중에 요약에 사용할 OpenAI 모델 이름 | 선택, 기본값 있음 |
 
 초보자 기준으로는 `.env.example` 파일을 보고 어떤 이름의 비밀값이 필요한지 확인하면 됩니다. 실제 값은 `.env.example`에 넣지 말고, 로컬에서는 `.env`, GitHub에서는 GitHub Secrets에 넣습니다.
+
+## YouTube API Key와 Playlist ID 설명
+
+### YouTube API Key란?
+
+`YOUTUBE_API_KEY`는 이 프로그램이 YouTube Data API에 “재생목록 영상 목록을 알려달라”고 요청할 때 사용하는 키입니다.
+
+초보자 기준으로는 집 열쇠라기보다 “Google Cloud에서 발급받은 API 사용 허가 번호”에 가깝습니다. 이 값은 비밀값이므로 코드에 직접 쓰거나 GitHub에 공개하면 안 됩니다.
+
+이 프로젝트에서는 YouTube Data API의 `playlistItems.list` 요청을 사용해 재생목록 안의 영상 제목, 설명, 게시일, 영상 ID를 가져옵니다.
+
+### Playlist ID란?
+
+`PLAYLIST_ID`는 감시할 YouTube 재생목록의 고유 ID입니다.
+
+재생목록 주소가 아래와 같다면:
+
+```text
+https://www.youtube.com/playlist?list=PL_example_123
+```
+
+`list=` 뒤에 있는 값이 Playlist ID입니다.
+
+```text
+PL_example_123
+```
+
+### 한 번에 몇 개의 영상을 확인하나요?
+
+`MAX_VIDEOS_TO_CHECK` 값만큼 최근 재생목록 영상을 확인합니다. 값을 따로 설정하지 않으면 기본값은 `5`입니다.
+
+YouTube Data API의 한 번 요청 제한 때문에 내부적으로 한 번에 최대 50개까지만 요청합니다. 이 프로젝트는 설정한 `MAX_VIDEOS_TO_CHECK`보다 많은 영상을 반환하지 않습니다.
 
 ## 이미 처리한 영상 기록 파일
 
@@ -122,13 +154,13 @@ youtube-stock-playlist-watcher/
     └── playlist_watcher/
         ├── __init__.py
         ├── config.py
-        └── state.py
+        ├── state.py
+        └── youtube.py
 ```
 
 ## 다음 단계 예정
 
-1. YouTube 재생목록에서 영상 목록을 읽는 기능
-2. 영상 자막을 가져오는 기능
-3. 영상 내용 분석 기능
-4. 이메일 발송 기능
-5. GitHub Actions 자동 실행 설정
+1. 영상 자막을 가져오는 기능
+2. 영상 내용 분석 기능
+3. 이메일 발송 기능
+4. GitHub Actions 자동 실행 설정
