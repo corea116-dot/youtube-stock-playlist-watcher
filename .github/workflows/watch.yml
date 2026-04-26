@@ -3,8 +3,8 @@ name: Watch YouTube Playlist
 on:
   workflow_dispatch:
   schedule:
-    # GitHub Actions cron uses UTC. 23:00 UTC = 08:00 KST next day.
-    - cron: "0 23 * * *"
+    # GitHub Actions cron uses UTC. 09:00 UTC = 18:00 KST.
+    - cron: "0 9 * * *"
 
 permissions:
   contents: write
@@ -62,4 +62,3 @@ jobs:
           git add data/processed_videos.json
           git commit -m "Update processed videos"
           git push
-

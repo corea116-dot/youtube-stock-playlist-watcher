@@ -296,27 +296,27 @@ OPENAI_MODEL
 
 ### 5. 자동 실행 시간
 
-현재 GitHub Actions는 매일 한국시간 오전 8시에 실행되도록 설정했습니다.
+현재 GitHub Actions는 매일 한국시간 오후 6시에 실행되도록 설정했습니다.
 
 GitHub Actions의 cron은 UTC 기준입니다.
 
 ```yaml
 schedule:
-  - cron: "0 23 * * *"
+  - cron: "0 9 * * *"
 ```
 
 의미:
 
-- `23:00 UTC`에 실행
-- 한국시간은 UTC보다 9시간 빠르므로 한국시간 `08:00` 실행
+- `09:00 UTC`에 실행
+- 한국시간은 UTC보다 9시간 빠르므로 한국시간 `18:00`, 즉 오후 6시에 실행
 
 자동 실행 시간을 바꾸려면 `.github/workflows/watch.yml` 파일의 `cron` 값을 바꾸면 됩니다.
 
-예를 들어 한국시간 오후 6시에 실행하고 싶다면 UTC 오전 9시이므로:
+예를 들어 한국시간 오전 8시에 실행하고 싶다면 UTC 전날 오후 11시이므로:
 
 ```yaml
 schedule:
-  - cron: "0 9 * * *"
+  - cron: "0 23 * * *"
 ```
 
 ### 6. `processed_videos.json`이 자동 commit되는 이유
