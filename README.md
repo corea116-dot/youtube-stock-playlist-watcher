@@ -2,7 +2,7 @@
 
 특정 YouTube 재생목록에 새 영상이 올라왔는지 확인하고, 영상에서 언급된 종목/섹터/이유를 정리해 이메일로 보내기 위한 Python 자동화 프로젝트입니다.
 
-> 현재 단계는 **프로젝트 기본 구조 준비 단계**입니다.  
+> 현재 단계는 **환경변수 설정과 처리 기록 파일 준비 단계**입니다.  
 > 아직 YouTube 연결, OpenAI 분석, 이메일 발송, GitHub Actions 자동 실행 기능은 구현되어 있지 않습니다.
 
 ## 이 프로젝트의 목표
@@ -24,9 +24,53 @@
 
 API 키, 이메일 비밀번호, 토큰 같은 비밀값은 코드에 직접 넣지 않습니다.
 
-로컬 테스트를 할 때는 `.env` 파일을 사용할 수 있지만, `.env` 파일은 GitHub에 올리지 않습니다. 대신 GitHub Actions에서 실행할 때는 **GitHub Secrets**를 사용합니다.
+현재 설정 코드는 Python 실행 환경에 등록된 환경변수를 읽습니다. 나중에 GitHub Actions에서 실행할 때는 **GitHub Secrets** 값을 환경변수로 넘기게 만들 예정입니다.
+
+로컬 테스트용으로 `.env` 파일을 만들 수는 있지만, `.env` 파일은 GitHub에 올리지 않습니다. `.env.example`은 실제 값이 아니라 “어떤 이름의 값이 필요한지” 보여주는 참고용 파일입니다.
 
 필요한 비밀값 이름은 `.env.example` 파일에 예시로 정리되어 있습니다.
+
+## 환경변수 목록
+
+환경변수는 프로그램 밖에서 넣어주는 설정값입니다. 비밀번호나 API 키를 코드에 직접 쓰지 않기 위해 사용합니다.
+
+| 이름 | 역할 | 필수 여부 |
+| --- | --- | --- |
+| `YOUTUBE_API_KEY` | 나중에 YouTube Data API를 사용할 때 필요한 키 | 필수 |
+| `OPENAI_API_KEY` | 나중에 영상 내용을 요약할 때 사용할 OpenAI API 키 | 필수 |
+| `PLAYLIST_ID` | 감시할 YouTube 재생목록 ID | 필수 |
+| `SMTP_HOST` | 이메일을 보낼 SMTP 서버 주소 | 필수 |
+| `SMTP_PORT` | SMTP 서버 포트 번호. 숫자여야 합니다. | 필수 |
+| `SMTP_USER` | SMTP 로그인 계정. 보통 이메일 주소입니다. | 필수 |
+| `SMTP_PASS` | SMTP 비밀번호 또는 앱 비밀번호 | 필수 |
+| `EMAIL_TO` | 요약 메일을 받을 이메일 주소 | 필수 |
+| `MAX_VIDEOS_TO_CHECK` | 한 번 실행할 때 확인할 최근 영상 개수 | 선택, 기본값 5 |
+| `OPENAI_MODEL` | 나중에 요약에 사용할 OpenAI 모델 이름 | 선택, 기본값 있음 |
+
+초보자 기준으로는 `.env.example` 파일을 보고 어떤 이름의 비밀값이 필요한지 확인하면 됩니다. 실제 값은 `.env.example`에 넣지 말고, 로컬에서는 `.env`, GitHub에서는 GitHub Secrets에 넣습니다.
+
+## 이미 처리한 영상 기록 파일
+
+이미 처리한 영상 ID는 아래 파일에 기록합니다.
+
+```text
+data/processed_videos.json
+```
+
+초기 내용은 다음과 같습니다.
+
+```json
+{
+  "processed_video_ids": []
+}
+```
+
+의미:
+
+- `processed_video_ids`는 이미 처리한 YouTube 영상 ID 목록입니다.
+- 처음에는 처리한 영상이 없으므로 빈 목록 `[]`입니다.
+- 나중에 영상 하나를 성공적으로 처리하면 해당 영상 ID가 이 목록에 추가됩니다.
+- 이 기록 덕분에 같은 영상을 반복해서 분석하거나 이메일로 다시 보내지 않을 수 있습니다.
 
 ## 초보자용 로컬 준비 흐름
 
@@ -72,17 +116,19 @@ youtube-stock-playlist-watcher/
 ├── pyproject.toml
 ├── .gitignore
 ├── .env.example
+├── data/
+│   └── processed_videos.json
 └── src/
     └── playlist_watcher/
-        └── __init__.py
+        ├── __init__.py
+        ├── config.py
+        └── state.py
 ```
 
 ## 다음 단계 예정
 
-1. 이미 처리한 영상 ID를 저장하는 기능
-2. YouTube 재생목록에서 영상 목록을 읽는 기능
-3. 영상 자막을 가져오는 기능
-4. 영상 내용 분석 기능
-5. 이메일 발송 기능
-6. GitHub Actions 자동 실행 설정
-
+1. YouTube 재생목록에서 영상 목록을 읽는 기능
+2. 영상 자막을 가져오는 기능
+3. 영상 내용 분석 기능
+4. 이메일 발송 기능
+5. GitHub Actions 자동 실행 설정
