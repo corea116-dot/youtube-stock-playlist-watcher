@@ -1,0 +1,65 @@
+name: Watch YouTube Playlist
+
+on:
+  workflow_dispatch:
+  schedule:
+    # GitHub Actions cron uses UTC. 23:00 UTC = 08:00 KST next day.
+    - cron: "0 23 * * *"
+
+permissions:
+  contents: write
+
+jobs:
+  watch:
+    name: Check playlist and send email
+    runs-on: ubuntu-latest
+
+    env:
+      YOUTUBE_API_KEY: ${{ secrets.YOUTUBE_API_KEY }}
+      OPENAI_API_KEY: ${{ secrets.OPENAI_API_KEY }}
+      PLAYLIST_ID: ${{ secrets.PLAYLIST_ID }}
+      SMTP_HOST: ${{ secrets.SMTP_HOST }}
+      SMTP_PORT: ${{ secrets.SMTP_PORT }}
+      SMTP_USER: ${{ secrets.SMTP_USER }}
+      SMTP_PASS: ${{ secrets.SMTP_PASS }}
+      EMAIL_TO: ${{ secrets.EMAIL_TO }}
+      MAX_VIDEOS_TO_CHECK: ${{ secrets.MAX_VIDEOS_TO_CHECK }}
+      OPENAI_MODEL: ${{ secrets.OPENAI_MODEL }}
+
+    steps:
+      - name: Explain run
+        run: |
+          echo "Starting YouTube playlist watcher."
+          echo "This workflow checks for new videos, sends email only when analysis succeeds, and saves processed video IDs."
+          echo "Secret values are passed through GitHub Secrets and are not printed."
+
+      - name: Check out repository
+        uses: actions/checkout@v4
+
+      - name: Set up Python 3.11
+        uses: actions/setup-python@v5
+        with:
+          python-version: "3.11"
+
+      - name: Install project dependencies
+        run: |
+          python -m pip install --upgrade pip
+          python -m pip install -e .
+
+      - name: Run playlist watcher
+        run: python -m playlist_watcher.main
+
+      - name: Commit processed video state if changed
+        run: |
+          git config user.name "github-actions[bot]"
+          git config user.email "github-actions[bot]@users.noreply.github.com"
+
+          if git diff --quiet -- data/processed_videos.json; then
+            echo "No changes to commit."
+            exit 0
+          fi
+
+          git add data/processed_videos.json
+          git commit -m "Update processed videos"
+          git push
+

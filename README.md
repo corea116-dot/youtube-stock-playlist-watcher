@@ -2,8 +2,7 @@
 
 특정 YouTube 재생목록에 새 영상이 올라왔는지 확인하고, 영상에서 언급된 종목/섹터/이유를 정리해 이메일로 보내기 위한 Python 자동화 프로젝트입니다.
 
-> 현재 단계는 **전체 실행 흐름을 `main.py`에서 연결한 단계**입니다.  
-> 아직 GitHub Actions 자동 실행 기능은 구현되어 있지 않습니다.
+> 현재 단계는 **GitHub Actions 자동 실행 설정을 추가한 단계**입니다.
 
 ## 이 프로젝트의 목표
 
@@ -216,6 +215,121 @@ EMAIL_TO=receiver@example.com
 
 특정 영상 하나에서 자막 수집이나 분석이 실패해도, 가능한 경우 다른 새 영상 처리는 계속 진행합니다.
 
+## GitHub에 올리고 자동 실행하기
+
+### 1. GitHub에 새 repository 만들기
+
+GitHub 웹사이트에서 새 repository를 만듭니다.
+
+초보자 기준 순서:
+
+1. GitHub에 로그인합니다.
+2. 오른쪽 위 `+` 버튼을 누릅니다.
+3. `New repository`를 선택합니다.
+4. repository 이름을 입력합니다.
+5. 공개 여부를 선택합니다.
+6. `Create repository`를 누릅니다.
+
+### 2. 로컬 프로젝트를 GitHub에 push하기
+
+GitHub가 새 repository를 만든 뒤 보여주는 주소를 사용합니다.
+
+예시:
+
+```bash
+git remote add origin https://github.com/YOUR_NAME/YOUR_REPOSITORY.git
+git branch -M main
+git push -u origin main
+```
+
+의미:
+
+- `git remote add origin ...`: 내 컴퓨터의 프로젝트와 GitHub repository를 연결합니다.
+- `git branch -M main`: 기본 브랜치 이름을 `main`으로 맞춥니다.
+- `git push -u origin main`: 현재 커밋들을 GitHub에 올립니다.
+
+### 3. GitHub Secrets 등록하기
+
+API 키, SMTP 비밀번호, Gmail App Password 같은 비밀값은 GitHub Secrets에 등록해야 합니다.
+
+등록 위치:
+
+```text
+GitHub repository 페이지
+→ Settings
+→ Secrets and variables
+→ Actions
+→ New repository secret
+```
+
+등록해야 하는 Secrets:
+
+```text
+YOUTUBE_API_KEY
+OPENAI_API_KEY
+PLAYLIST_ID
+SMTP_HOST
+SMTP_PORT
+SMTP_USER
+SMTP_PASS
+EMAIL_TO
+MAX_VIDEOS_TO_CHECK
+OPENAI_MODEL
+```
+
+주의:
+
+- 실제 값은 코드, README, `.env.example`에 넣지 마세요.
+- `.env` 파일은 로컬 테스트용으로만 사용하고 GitHub에 올리지 마세요.
+- GitHub Actions는 Secrets 값을 환경변수로 받아 실행합니다.
+
+### 4. Actions 탭에서 수동 실행하기
+
+수동 실행 방법:
+
+1. GitHub repository에서 `Actions` 탭을 엽니다.
+2. 왼쪽에서 `Watch YouTube Playlist` workflow를 선택합니다.
+3. `Run workflow` 버튼을 누릅니다.
+4. 초록색 실행 항목을 눌러 로그를 확인합니다.
+
+로그에는 Secret 값이 출력되지 않도록 했습니다. 대신 “시작”, “의존성 설치”, “프로그램 실행”, “변경사항 커밋 여부” 같은 단계만 보이게 됩니다.
+
+### 5. 자동 실행 시간
+
+현재 GitHub Actions는 매일 한국시간 오전 8시에 실행되도록 설정했습니다.
+
+GitHub Actions의 cron은 UTC 기준입니다.
+
+```yaml
+schedule:
+  - cron: "0 23 * * *"
+```
+
+의미:
+
+- `23:00 UTC`에 실행
+- 한국시간은 UTC보다 9시간 빠르므로 한국시간 `08:00` 실행
+
+자동 실행 시간을 바꾸려면 `.github/workflows/watch.yml` 파일의 `cron` 값을 바꾸면 됩니다.
+
+예를 들어 한국시간 오후 6시에 실행하고 싶다면 UTC 오전 9시이므로:
+
+```yaml
+schedule:
+  - cron: "0 9 * * *"
+```
+
+### 6. `processed_videos.json`이 자동 commit되는 이유
+
+`data/processed_videos.json`은 이미 처리한 YouTube 영상 ID를 기억하는 파일입니다.
+
+GitHub Actions는 매번 새 컴퓨터처럼 깨끗한 환경에서 실행됩니다. 그래서 이 파일의 변경사항을 GitHub repository에 다시 저장하지 않으면, 다음 실행 때 같은 영상을 또 새 영상으로 착각할 수 있습니다.
+
+그래서 workflow는 실행 후 `data/processed_videos.json`이 바뀌었는지 확인합니다.
+
+- 변경사항이 있으면 `Update processed videos`라는 커밋으로 저장하고 push합니다.
+- 변경사항이 없으면 `No changes to commit.`이라고 출력하고 넘어갑니다.
+
 ## 이미 처리한 영상 기록 파일
 
 이미 처리한 영상 ID는 아래 파일에 기록합니다.
@@ -311,6 +425,9 @@ youtube-stock-playlist-watcher/
 ├── README.md
 ├── pyproject.toml
 ├── .gitignore
+├── .github/
+│   └── workflows/
+│       └── watch.yml
 ├── .env.example
 ├── data/
 │   └── processed_videos.json
@@ -328,5 +445,6 @@ youtube-stock-playlist-watcher/
 
 ## 다음 단계 예정
 
-1. GitHub Actions 자동 실행 설정
-2. GitHub Secrets 설정 안내 보강
+1. 실제 GitHub repository에 push
+2. GitHub Secrets 등록
+3. Actions 탭에서 수동 실행 테스트
