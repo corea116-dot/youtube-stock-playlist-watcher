@@ -2,8 +2,8 @@
 
 특정 YouTube 재생목록에 새 영상이 올라왔는지 확인하고, 영상에서 언급된 종목/섹터/이유를 정리해 이메일로 보내기 위한 Python 자동화 프로젝트입니다.
 
-> 현재 단계는 **OpenAI API를 사용한 영상 내용 구조화 분석 기능 준비 단계**입니다.  
-> 아직 이메일 발송, GitHub Actions 자동 실행, 전체 실행 연결 기능은 구현되어 있지 않습니다.
+> 현재 단계는 **분석 결과 이메일 발송 기능 준비 단계**입니다.  
+> 아직 GitHub Actions 자동 실행, 전체 실행 연결 기능은 구현되어 있지 않습니다.
 
 ## 이 프로젝트의 목표
 
@@ -144,6 +144,63 @@ analyze_video_content(
 - 자막이 없으면 나중에 전체 흐름에서 제목과 설명만으로 분석하게 연결할 예정입니다.
 - 실제 분석을 실행하려면 `OPENAI_API_KEY` 환경변수가 필요합니다.
 
+## 이메일 발송 기능
+
+분석 결과는 SMTP를 사용해 이메일로 보냅니다.
+
+현재 단계에서 만든 함수:
+
+```python
+send_analysis_email(analyses: list[dict]) -> None
+```
+
+동작 방식:
+
+- 분석 결과가 비어 있으면 이메일을 보내지 않고 로그만 남깁니다.
+- 분석 결과가 있으면 HTML 이메일과 plain text 대체 본문을 함께 만듭니다.
+- 이메일 제목은 `[YouTube 종목 분석] 새 영상 분석 결과`입니다.
+- SMTP 발송에 실패해도 프로그램 전체가 갑자기 죽지 않게 로그를 남기고 종료합니다.
+
+이메일 본문에는 영상별로 다음 내용을 넣습니다.
+
+- 영상 제목
+- 영상 URL
+- 요약
+- 언급 종목
+- 언급 섹터
+- 언급 이유
+- 리스크 또는 불확실한 항목
+- confidence
+- 투자 조언이 아니라 영상 내용 요약이라는 안내문
+
+### Gmail SMTP를 사용할 때 주의할 점
+
+Gmail SMTP를 사용할 경우 일반 Gmail 로그인 비밀번호를 코드에 넣으면 안 됩니다.
+
+대신 Google 계정에서 **App Password**를 만들어 `SMTP_PASS` 값으로 사용해야 합니다. App Password도 비밀번호이므로 코드에 직접 쓰거나 GitHub에 공개하면 안 됩니다.
+
+GitHub Actions에서 실행할 때는 아래 SMTP 관련 값을 GitHub Secrets에 등록해야 합니다.
+
+```text
+SMTP_HOST
+SMTP_PORT
+SMTP_USER
+SMTP_PASS
+EMAIL_TO
+```
+
+예를 들어 Gmail을 사용한다면 일반적으로 다음과 비슷합니다.
+
+```text
+SMTP_HOST=smtp.gmail.com
+SMTP_PORT=587
+SMTP_USER=your_email@gmail.com
+SMTP_PASS=your_gmail_app_password
+EMAIL_TO=receiver@example.com
+```
+
+위 값은 예시입니다. 실제 비밀번호나 App Password는 `.env.example`이 아니라 로컬 환경변수 또는 GitHub Secrets에만 넣어야 합니다. `.env` 파일은 `.gitignore`에 의해 Git에 올라가지 않도록 유지합니다.
+
 ## 이미 처리한 영상 기록 파일
 
 이미 처리한 영상 ID는 아래 파일에 기록합니다.
@@ -218,6 +275,7 @@ youtube-stock-playlist-watcher/
         ├── __init__.py
         ├── analyzer.py
         ├── config.py
+        ├── emailer.py
         ├── state.py
         ├── transcript.py
         └── youtube.py
@@ -225,5 +283,5 @@ youtube-stock-playlist-watcher/
 
 ## 다음 단계 예정
 
-1. 이메일 발송 기능
+1. 전체 실행 흐름을 연결하는 `main.py`
 2. GitHub Actions 자동 실행 설정
