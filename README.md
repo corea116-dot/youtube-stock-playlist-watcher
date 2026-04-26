@@ -2,8 +2,8 @@
 
 특정 YouTube 재생목록에 새 영상이 올라왔는지 확인하고, 영상에서 언급된 종목/섹터/이유를 정리해 이메일로 보내기 위한 Python 자동화 프로젝트입니다.
 
-> 현재 단계는 **분석 결과 이메일 발송 기능 준비 단계**입니다.  
-> 아직 GitHub Actions 자동 실행, 전체 실행 연결 기능은 구현되어 있지 않습니다.
+> 현재 단계는 **전체 실행 흐름을 `main.py`에서 연결한 단계**입니다.  
+> 아직 GitHub Actions 자동 실행 기능은 구현되어 있지 않습니다.
 
 ## 이 프로젝트의 목표
 
@@ -201,6 +201,21 @@ EMAIL_TO=receiver@example.com
 
 위 값은 예시입니다. 실제 비밀번호나 App Password는 `.env.example`이 아니라 로컬 환경변수 또는 GitHub Secrets에만 넣어야 합니다. `.env` 파일은 `.gitignore`에 의해 Git에 올라가지 않도록 유지합니다.
 
+## 전체 실행 흐름
+
+`main.py`는 지금까지 만든 기능을 아래 순서로 연결합니다.
+
+1. 환경변수 설정값을 읽습니다.
+2. YouTube 재생목록에서 최근 영상을 가져옵니다.
+3. `data/processed_videos.json`에 이미 기록된 영상은 제외합니다.
+4. 새 영상이 없으면 `No new videos` 로그를 남기고 이메일 없이 종료합니다.
+5. 새 영상마다 자막을 가져옵니다.
+6. 제목, 설명, 자막으로 OpenAI 분석을 실행합니다.
+7. 분석에 성공한 결과가 있으면 이메일을 보냅니다.
+8. 이메일 발송이 성공한 경우에만 해당 `video_id`를 처리 완료로 기록합니다.
+
+특정 영상 하나에서 자막 수집이나 분석이 실패해도, 가능한 경우 다른 새 영상 처리는 계속 진행합니다.
+
 ## 이미 처리한 영상 기록 파일
 
 이미 처리한 영상 ID는 아래 파일에 기록합니다.
@@ -260,6 +275,35 @@ pip install -e .
 
 현재 폴더의 Python 프로젝트를 실행 가능한 형태로 설치합니다.
 
+### 5. 로컬에서 전체 흐름 실행하기
+
+환경변수를 모두 준비한 뒤 아래 명령어로 실행할 수 있습니다.
+
+```bash
+python -m playlist_watcher.main
+```
+
+의미:
+
+- YouTube 영상 목록 확인
+- 새 영상만 분석
+- 분석 결과 이메일 발송
+- 이메일 발송 성공 시 처리 완료 기록
+
+설치 후에는 아래 명령어도 사용할 수 있습니다.
+
+```bash
+playlist-watcher
+```
+
+초보자 주의사항:
+
+- 실제 실행에는 YouTube API Key, OpenAI API Key, SMTP 설정이 필요합니다.
+- 일반 Gmail 비밀번호를 코드에 넣지 마세요.
+- Gmail을 쓴다면 Gmail App Password를 `SMTP_PASS`로 사용하세요.
+- 새 영상이 없으면 `No new videos` 로그가 나오고 이메일은 발송되지 않습니다.
+- 아직 GitHub Actions 자동 실행은 연결하지 않았습니다.
+
 ## 현재 파일 구조
 
 ```text
@@ -276,6 +320,7 @@ youtube-stock-playlist-watcher/
         ├── analyzer.py
         ├── config.py
         ├── emailer.py
+        ├── main.py
         ├── state.py
         ├── transcript.py
         └── youtube.py
@@ -283,5 +328,5 @@ youtube-stock-playlist-watcher/
 
 ## 다음 단계 예정
 
-1. 전체 실행 흐름을 연결하는 `main.py`
-2. GitHub Actions 자동 실행 설정
+1. GitHub Actions 자동 실행 설정
+2. GitHub Secrets 설정 안내 보강
