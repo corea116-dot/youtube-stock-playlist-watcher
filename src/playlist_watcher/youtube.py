@@ -3,6 +3,7 @@
 from __future__ import annotations
 
 import json
+import logging
 from typing import Any
 from urllib.error import HTTPError, URLError
 from urllib.parse import urlencode
@@ -10,6 +11,8 @@ from urllib.request import urlopen
 
 from playlist_watcher.config import AppConfig, load_config
 
+
+logger = logging.getLogger(__name__)
 
 YOUTUBE_PLAYLIST_ITEMS_URL = "https://www.googleapis.com/youtube/v3/playlistItems"
 YOUTUBE_WATCH_URL = "https://www.youtube.com/watch"
@@ -27,6 +30,7 @@ def get_latest_playlist_videos(
 
     Returned item shape:
     {
+        "playlist_id": "",
         "video_id": "",
         "title": "",
         "description": "",
@@ -40,15 +44,33 @@ def get_latest_playlist_videos(
 
     app_config = config or load_config()
     max_results = min(app_config.max_videos_to_check, YOUTUBE_MAX_RESULTS_LIMIT)
-    response_data = _request_playlist_items(app_config, max_results)
-    videos = [_playlist_item_to_video(item) for item in response_data.get("items", [])]
-    return [video for video in videos if video is not None][
-        : app_config.max_videos_to_check
-    ]
+    videos: list[dict[str, str]] = []
+
+    for playlist_id in app_config.playlist_ids:
+        try:
+            response_data = _request_playlist_items(app_config, playlist_id, max_results)
+        except YouTubeAPIError as exc:
+            logger.warning(
+                "재생목록 조회에 실패했지만 다른 재생목록 처리는 계속합니다. "
+                "playlist_id=%s, 이유=%s",
+                playlist_id,
+                exc,
+            )
+            continue
+
+        playlist_videos = [
+            _playlist_item_to_video(item, playlist_id)
+            for item in response_data.get("items", [])
+        ]
+        valid_playlist_videos = [video for video in playlist_videos if video is not None]
+        videos.extend(valid_playlist_videos[: app_config.max_videos_to_check])
+
+    return videos
 
 
 def _request_playlist_items(
     config: AppConfig,
+    playlist_id: str,
     max_results: int,
 ) -> dict[str, Any]:
     """Request playlist items from the YouTube Data API."""
@@ -56,7 +78,7 @@ def _request_playlist_items(
     query = urlencode(
         {
             "part": "snippet",
-            "playlistId": config.playlist_id,
+            "playlistId": playlist_id,
             "maxResults": str(max_results),
             "key": config.youtube_api_key,
         }
@@ -72,7 +94,7 @@ def _request_playlist_items(
             "YouTube 영상 목록을 가져오지 못했습니다.\n"
             f"HTTP 상태 코드: {exc.code}\n"
             f"상세 내용: {message}\n"
-            "초보자 안내: YOUTUBE_API_KEY가 맞는지, PLAYLIST_ID가 맞는지, "
+            "초보자 안내: YOUTUBE_API_KEY가 맞는지, PLAYLIST_IDS 또는 PLAYLIST_ID가 맞는지, "
             "Google Cloud에서 YouTube Data API v3가 사용 설정되어 있는지 확인하세요."
         ) from exc
     except URLError as exc:
@@ -89,7 +111,7 @@ def _request_playlist_items(
         ) from exc
 
 
-def _playlist_item_to_video(item: Any) -> dict[str, str] | None:
+def _playlist_item_to_video(item: Any, playlist_id: str) -> dict[str, str] | None:
     """Convert one YouTube playlist item into the project video shape."""
 
     if not isinstance(item, dict):
@@ -108,6 +130,7 @@ def _playlist_item_to_video(item: Any) -> dict[str, str] | None:
         return None
 
     return {
+        "playlist_id": playlist_id,
         "video_id": video_id,
         "title": _string_or_empty(snippet.get("title")),
         "description": _string_or_empty(snippet.get("description")),
@@ -145,4 +168,3 @@ def _string_or_empty(value: Any) -> str:
     """Return a string value or an empty string."""
 
     return value if isinstance(value, str) else ""
-

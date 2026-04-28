@@ -51,14 +51,14 @@ def run(
         logger.info("설정값을 읽었습니다. 초보자 안내: 환경변수 로딩이 완료되었습니다.")
 
         videos = fetch_videos_fn(config)
-        logger.info("YouTube 재생목록에서 최근 영상 %s개를 가져왔습니다.", len(videos))
+        logger.info(
+            "YouTube 재생목록 %s개에서 최근 영상 %s개를 가져왔습니다.",
+            len(config.playlist_ids),
+            len(videos),
+        )
 
         processed_video_ids = load_processed_ids_fn()
-        new_videos = [
-            video
-            for video in videos
-            if video.get("video_id") and video["video_id"] not in processed_video_ids
-        ]
+        new_videos = _filter_new_unique_videos(videos, processed_video_ids)
     except Exception as exc:
         logger.error(
             "초기 실행 준비 중 오류가 발생했습니다. 이유=%s. "
@@ -77,7 +77,12 @@ def run(
 
     for video in new_videos:
         video_id = video["video_id"]
-        logger.info("영상 처리를 시작합니다. video_id=%s, 제목=%s", video_id, video.get("title", ""))
+        logger.info(
+            "영상 처리를 시작합니다. playlist_id=%s, video_id=%s, 제목=%s",
+            video.get("playlist_id", ""),
+            video_id,
+            video.get("title", ""),
+        )
 
         try:
             transcript_text = get_transcript_fn(video_id)
@@ -182,10 +187,40 @@ def _attach_video_metadata(analysis: Analysis, video: Video) -> Analysis:
 
     enriched = dict(analysis)
     enriched.setdefault("video_id", video.get("video_id", ""))
+    enriched.setdefault("playlist_id", video.get("playlist_id", ""))
     enriched.setdefault("video_title", video.get("title", ""))
     enriched.setdefault("video_url", video.get("url", ""))
     enriched.setdefault("published_at", video.get("published_at", ""))
     return enriched
+
+
+def _filter_new_unique_videos(
+    videos: list[Video],
+    processed_video_ids: set[str],
+) -> list[Video]:
+    """Remove already processed videos and duplicate video IDs."""
+
+    seen_video_ids: set[str] = set()
+    new_videos: list[Video] = []
+
+    for video in videos:
+        video_id = video.get("video_id")
+        if not video_id:
+            continue
+        if video_id in processed_video_ids:
+            continue
+        if video_id in seen_video_ids:
+            logger.info(
+                "중복 영상이라 한 번만 분석합니다. video_id=%s. "
+                "초보자 안내: 같은 영상이 여러 재생목록에 있을 수 있습니다.",
+                video_id,
+            )
+            continue
+
+        seen_video_ids.add(video_id)
+        new_videos.append(video)
+
+    return new_videos
 
 
 def _configure_logging() -> None:
@@ -196,4 +231,3 @@ def _configure_logging() -> None:
 
 if __name__ == "__main__":
     sys.exit(main())
-

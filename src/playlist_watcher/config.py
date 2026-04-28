@@ -13,7 +13,6 @@ DEFAULT_OPENAI_MODEL = "gpt-4o-mini"
 REQUIRED_ENV_VARS = (
     "YOUTUBE_API_KEY",
     "OPENAI_API_KEY",
-    "PLAYLIST_ID",
     "SMTP_HOST",
     "SMTP_PORT",
     "SMTP_USER",
@@ -32,7 +31,7 @@ class AppConfig:
 
     youtube_api_key: str
     openai_api_key: str
-    playlist_id: str
+    playlist_ids: list[str]
     smtp_host: str
     smtp_port: int
     smtp_user: str
@@ -40,6 +39,12 @@ class AppConfig:
     email_to: str
     max_videos_to_check: int = DEFAULT_MAX_VIDEOS_TO_CHECK
     openai_model: str = DEFAULT_OPENAI_MODEL
+
+    @property
+    def playlist_id(self) -> str:
+        """Return the first playlist ID for backward-compatible callers."""
+
+        return self.playlist_ids[0]
 
 
 def load_config(environ: Mapping[str, str] | None = None) -> AppConfig:
@@ -62,6 +67,8 @@ def load_config(environ: Mapping[str, str] | None = None) -> AppConfig:
             "필요한 이름은 .env.example 파일을 참고하세요."
         )
 
+    playlist_ids = _parse_playlist_ids(env)
+
     smtp_port = _parse_positive_int(env["SMTP_PORT"], "SMTP_PORT")
     raw_max_videos_to_check = env.get("MAX_VIDEOS_TO_CHECK") or str(
         DEFAULT_MAX_VIDEOS_TO_CHECK
@@ -74,7 +81,7 @@ def load_config(environ: Mapping[str, str] | None = None) -> AppConfig:
     return AppConfig(
         youtube_api_key=env["YOUTUBE_API_KEY"],
         openai_api_key=env["OPENAI_API_KEY"],
-        playlist_id=env["PLAYLIST_ID"],
+        playlist_ids=playlist_ids,
         smtp_host=env["SMTP_HOST"],
         smtp_port=smtp_port,
         smtp_user=env["SMTP_USER"],
@@ -83,6 +90,35 @@ def load_config(environ: Mapping[str, str] | None = None) -> AppConfig:
         max_videos_to_check=max_videos_to_check,
         openai_model=env.get("OPENAI_MODEL") or DEFAULT_OPENAI_MODEL,
     )
+
+
+def _parse_playlist_ids(env: Mapping[str, str]) -> list[str]:
+    """Parse playlist IDs from PLAYLIST_IDS or the legacy PLAYLIST_ID."""
+
+    raw_playlist_ids = env.get("PLAYLIST_IDS")
+    if raw_playlist_ids:
+        playlist_ids = [
+            playlist_id.strip()
+            for playlist_id in raw_playlist_ids.split(",")
+            if playlist_id.strip()
+        ]
+    else:
+        playlist_ids = []
+
+    if not playlist_ids:
+        playlist_id = env.get("PLAYLIST_ID", "").strip()
+        playlist_ids = [playlist_id] if playlist_id else []
+
+    if not playlist_ids:
+        raise ConfigError(
+            "필수 환경변수가 설정되지 않았습니다: PLAYLIST_IDS 또는 PLAYLIST_ID\n"
+            "초보자 안내: 여러 재생목록을 감시하려면 PLAYLIST_IDS에 쉼표로 구분한 "
+            "재생목록 ID를 넣으세요. 예: PLAYLIST_IDS=PLabc123,PLdef456\n"
+            "기존 방식처럼 재생목록 1개만 감시하려면 PLAYLIST_ID에 재생목록 ID 하나를 "
+            "넣어도 됩니다."
+        )
+
+    return playlist_ids
 
 
 def _parse_positive_int(value: str, env_name: str) -> int:

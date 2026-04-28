@@ -37,7 +37,8 @@ API 키, 이메일 비밀번호, 토큰 같은 비밀값은 코드에 직접 넣
 | --- | --- | --- |
 | `YOUTUBE_API_KEY` | YouTube Data API로 재생목록 영상을 읽을 때 필요한 키 | 필수 |
 | `OPENAI_API_KEY` | 나중에 영상 내용을 요약할 때 사용할 OpenAI API 키 | 필수 |
-| `PLAYLIST_ID` | 감시할 YouTube 재생목록 ID | 필수 |
+| `PLAYLIST_IDS` | 여러 YouTube 재생목록 ID를 쉼표로 연결한 값 | 권장, `PLAYLIST_ID`가 없으면 필수 |
+| `PLAYLIST_ID` | 감시할 YouTube 재생목록 ID 1개. 기존 방식 호환용 | 선택, `PLAYLIST_IDS`가 없으면 사용 |
 | `SMTP_HOST` | 이메일을 보낼 SMTP 서버 주소 | 필수 |
 | `SMTP_PORT` | SMTP 서버 포트 번호. 숫자여야 합니다. | 필수 |
 | `SMTP_USER` | SMTP 로그인 계정. 보통 이메일 주소입니다. | 필수 |
@@ -60,7 +61,7 @@ API 키, 이메일 비밀번호, 토큰 같은 비밀값은 코드에 직접 넣
 
 ### Playlist ID란?
 
-`PLAYLIST_ID`는 감시할 YouTube 재생목록의 고유 ID입니다.
+Playlist ID는 감시할 YouTube 재생목록의 고유 ID입니다.
 
 재생목록 주소가 아래와 같다면:
 
@@ -74,9 +75,31 @@ https://www.youtube.com/playlist?list=PL_example_123
 PL_example_123
 ```
 
+### 여러 재생목록 등록하기
+
+여러 재생목록을 동시에 감시하려면 GitHub Secrets 또는 로컬 환경변수에 `PLAYLIST_IDS`를 등록합니다.
+
+값은 전체 URL이 아니라 `list=` 뒤의 재생목록 ID만 쉼표로 연결합니다.
+
+예:
+
+```text
+PLAYLIST_IDS=PLabc123,PLdef456,PLghi789
+```
+
+공백이 조금 들어가도 프로그램이 안전하게 처리합니다.
+
+```text
+PLAYLIST_IDS=PLabc123, PLdef456, PLghi789
+```
+
+기존처럼 재생목록 1개만 감시하려면 `PLAYLIST_ID`를 사용할 수 있습니다. 하지만 여러 개를 사용할 가능성이 있다면 `PLAYLIST_IDS` 사용을 권장합니다.
+
 ### 한 번에 몇 개의 영상을 확인하나요?
 
-`MAX_VIDEOS_TO_CHECK` 값만큼 최근 재생목록 영상을 확인합니다. 값을 따로 설정하지 않으면 기본값은 `5`입니다.
+`MAX_VIDEOS_TO_CHECK` 값만큼 각 재생목록의 최근 영상을 확인합니다. 값을 따로 설정하지 않으면 기본값은 `5`입니다.
+
+예를 들어 `MAX_VIDEOS_TO_CHECK=5`이고 재생목록이 3개라면 최대 15개 영상을 확인할 수 있습니다.
 
 YouTube Data API의 한 번 요청 제한 때문에 내부적으로 한 번에 최대 50개까지만 요청합니다. 이 프로젝트는 설정한 `MAX_VIDEOS_TO_CHECK`보다 많은 영상을 반환하지 않습니다.
 
@@ -205,13 +228,14 @@ EMAIL_TO=receiver@example.com
 `main.py`는 지금까지 만든 기능을 아래 순서로 연결합니다.
 
 1. 환경변수 설정값을 읽습니다.
-2. YouTube 재생목록에서 최근 영상을 가져옵니다.
+2. `PLAYLIST_IDS` 또는 `PLAYLIST_ID`에 설정된 YouTube 재생목록에서 최근 영상을 가져옵니다.
 3. `data/processed_videos.json`에 이미 기록된 영상은 제외합니다.
-4. 새 영상이 없으면 `No new videos` 로그를 남기고 이메일 없이 종료합니다.
-5. 새 영상마다 자막을 가져옵니다.
-6. 제목, 설명, 자막으로 OpenAI 분석을 실행합니다.
-7. 분석에 성공한 결과가 있으면 이메일을 보냅니다.
-8. 이메일 발송이 성공한 경우에만 해당 `video_id`를 처리 완료로 기록합니다.
+4. 같은 영상이 여러 재생목록에 있어도 `video_id` 기준으로 한 번만 분석합니다.
+5. 새 영상이 없으면 `No new videos` 로그를 남기고 이메일 없이 종료합니다.
+6. 새 영상마다 자막을 가져옵니다.
+7. 제목, 설명, 자막으로 OpenAI 분석을 실행합니다.
+8. 분석에 성공한 결과가 있으면 이메일을 보냅니다.
+9. 이메일 발송이 성공한 경우에만 해당 `video_id`를 처리 완료로 기록합니다.
 
 특정 영상 하나에서 자막 수집이나 분석이 실패해도, 가능한 경우 다른 새 영상 처리는 계속 진행합니다.
 
@@ -267,6 +291,7 @@ GitHub repository 페이지
 ```text
 YOUTUBE_API_KEY
 OPENAI_API_KEY
+PLAYLIST_IDS
 PLAYLIST_ID
 SMTP_HOST
 SMTP_PORT

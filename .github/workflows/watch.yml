@@ -17,6 +17,7 @@ jobs:
     env:
       YOUTUBE_API_KEY: ${{ secrets.YOUTUBE_API_KEY }}
       OPENAI_API_KEY: ${{ secrets.OPENAI_API_KEY }}
+      PLAYLIST_IDS: ${{ secrets.PLAYLIST_IDS }}
       PLAYLIST_ID: ${{ secrets.PLAYLIST_ID }}
       SMTP_HOST: ${{ secrets.SMTP_HOST }}
       SMTP_PORT: ${{ secrets.SMTP_PORT }}
