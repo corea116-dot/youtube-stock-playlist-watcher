@@ -16,7 +16,7 @@ jobs:
 
     env:
       YOUTUBE_API_KEY: ${{ secrets.YOUTUBE_API_KEY }}
-      OPENAI_API_KEY: ${{ secrets.OPENAI_API_KEY }}
+      GEMINI_API_KEY: ${{ secrets.GEMINI_API_KEY }}
       PLAYLIST_IDS: ${{ secrets.PLAYLIST_IDS }}
       PLAYLIST_ID: ${{ secrets.PLAYLIST_ID }}
       SMTP_HOST: ${{ secrets.SMTP_HOST }}
@@ -25,7 +25,7 @@ jobs:
       SMTP_PASS: ${{ secrets.SMTP_PASS }}
       EMAIL_TO: ${{ secrets.EMAIL_TO }}
       MAX_VIDEOS_TO_CHECK: ${{ secrets.MAX_VIDEOS_TO_CHECK }}
-      OPENAI_MODEL: ${{ secrets.OPENAI_MODEL }}
+      GEMINI_MODEL: ${{ secrets.GEMINI_MODEL }}
 
     steps:
       - name: Explain run

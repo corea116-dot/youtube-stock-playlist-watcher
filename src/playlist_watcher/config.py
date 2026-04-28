@@ -8,11 +8,11 @@ from typing import Mapping
 
 
 DEFAULT_MAX_VIDEOS_TO_CHECK = 5
-DEFAULT_OPENAI_MODEL = "gpt-4o-mini"
+DEFAULT_GEMINI_MODEL = "gemini-2.5-flash-lite"
 
 REQUIRED_ENV_VARS = (
     "YOUTUBE_API_KEY",
-    "OPENAI_API_KEY",
+    "GEMINI_API_KEY",
     "SMTP_HOST",
     "SMTP_PORT",
     "SMTP_USER",
@@ -30,7 +30,7 @@ class AppConfig:
     """Settings needed by the application."""
 
     youtube_api_key: str
-    openai_api_key: str
+    gemini_api_key: str
     playlist_ids: list[str]
     smtp_host: str
     smtp_port: int
@@ -38,7 +38,7 @@ class AppConfig:
     smtp_pass: str
     email_to: str
     max_videos_to_check: int = DEFAULT_MAX_VIDEOS_TO_CHECK
-    openai_model: str = DEFAULT_OPENAI_MODEL
+    gemini_model: str = DEFAULT_GEMINI_MODEL
 
     @property
     def playlist_id(self) -> str:
@@ -80,7 +80,7 @@ def load_config(environ: Mapping[str, str] | None = None) -> AppConfig:
 
     return AppConfig(
         youtube_api_key=env["YOUTUBE_API_KEY"],
-        openai_api_key=env["OPENAI_API_KEY"],
+        gemini_api_key=env["GEMINI_API_KEY"],
         playlist_ids=playlist_ids,
         smtp_host=env["SMTP_HOST"],
         smtp_port=smtp_port,
@@ -88,7 +88,7 @@ def load_config(environ: Mapping[str, str] | None = None) -> AppConfig:
         smtp_pass=env["SMTP_PASS"],
         email_to=env["EMAIL_TO"],
         max_videos_to_check=max_videos_to_check,
-        openai_model=env.get("OPENAI_MODEL") or DEFAULT_OPENAI_MODEL,
+        gemini_model=env.get("GEMINI_MODEL") or DEFAULT_GEMINI_MODEL,
     )
 
 

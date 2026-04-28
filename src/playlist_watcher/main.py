@@ -40,7 +40,7 @@ def run(
     """Run the full watcher workflow.
 
     Dependency arguments make this function easy to test with mocks, so tests do
-    not need real YouTube, OpenAI, or SMTP credentials.
+    not need real YouTube, Gemini, or SMTP credentials.
     """
 
     if send_email_fn is None:
