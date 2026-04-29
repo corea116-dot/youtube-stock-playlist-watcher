@@ -7,7 +7,7 @@ import sys
 from collections.abc import Callable
 from typing import Any
 
-from playlist_watcher.analyzer import analyze_video_content
+from playlist_watcher.analyzer import analyze_video
 from playlist_watcher.config import AppConfig, load_config
 from playlist_watcher.emailer import _build_email_message, _send_message
 from playlist_watcher.state import load_processed_video_ids, mark_processed
@@ -17,7 +17,7 @@ from playlist_watcher.youtube import get_latest_playlist_videos
 
 logger = logging.getLogger(__name__)
 
-Video = dict[str, str]
+Video = dict[str, Any]
 Analysis = dict[str, Any]
 
 
@@ -33,7 +33,7 @@ def run(
     fetch_videos_fn: Callable[[AppConfig], list[Video]] = get_latest_playlist_videos,
     load_processed_ids_fn: Callable[[], set[str]] = load_processed_video_ids,
     get_transcript_fn: Callable[[str], str | None] = get_transcript_text,
-    analyze_fn: Callable[[str, str, str | None, AppConfig], Analysis] = analyze_video_content,
+    analyze_fn: Callable[[Video, str | None, AppConfig], Analysis] = analyze_video,
     send_email_fn: Callable[[list[Analysis], AppConfig], bool] = None,
     mark_processed_fn: Callable[[str], None] = mark_processed,
 ) -> int:
@@ -89,7 +89,7 @@ def run(
         except Exception as exc:
             logger.warning(
                 "자막 수집 중 오류가 발생했지만 계속 진행합니다. video_id=%s, 이유=%s. "
-                "초보자 안내: 자막이 없어도 제목/설명만으로 분석을 시도합니다.",
+                "초보자 안내: 자막이 없어도 Gemini YouTube URL 직접 분석을 먼저 시도합니다.",
                 video_id,
                 exc,
             )
@@ -97,8 +97,7 @@ def run(
 
         try:
             analysis = analyze_fn(
-                video.get("title", ""),
-                video.get("description", ""),
+                _ensure_video_url(video),
                 transcript_text,
                 config,
             )
@@ -191,7 +190,21 @@ def _attach_video_metadata(analysis: Analysis, video: Video) -> Analysis:
     enriched.setdefault("video_title", video.get("title", ""))
     enriched.setdefault("video_url", video.get("url", ""))
     enriched.setdefault("published_at", video.get("published_at", ""))
+    enriched.setdefault("channel_title", video.get("channel_title", ""))
     return enriched
+
+
+def _ensure_video_url(video: Video) -> Video:
+    """Ensure a video dictionary has a YouTube watch URL."""
+
+    if video.get("url"):
+        return video
+
+    video_with_url = dict(video)
+    video_id = video_with_url.get("video_id", "")
+    if video_id:
+        video_with_url["url"] = f"https://www.youtube.com/watch?v={video_id}"
+    return video_with_url
 
 
 def _filter_new_unique_videos(

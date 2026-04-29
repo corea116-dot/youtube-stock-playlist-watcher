@@ -115,16 +115,18 @@ def _build_plain_text_body(analyses: list[dict]) -> str:
                 f"===== 영상 {index} =====",
                 f"영상 제목: {_get_value(analysis, 'video_title', 'title')}",
                 f"영상 URL: {_get_value(analysis, 'video_url', 'url')}",
+                f"분석 기준: {_analysis_basis_label(analysis)}",
+                _analysis_basis_notice(analysis),
                 f"요약: {_get_value(analysis, 'summary')}",
                 "언급 종목:",
-                _format_plain_list(_stock_lines(analysis)),
+                _format_plain_list(_stock_lines(analysis), "명확히 언급된 종목 없음"),
                 "언급 섹터:",
-                _format_plain_list(_sector_lines(analysis)),
+                _format_plain_list(_sector_lines(analysis), "명확히 언급된 섹터 없음"),
                 "언급 이유:",
                 _format_plain_list(_reason_lines(analysis)),
                 "리스크:",
                 _format_plain_list(_risk_lines(analysis)),
-                f"confidence: {_get_value(analysis, 'confidence', default='명시되지 않음')}",
+                f"confidence: {_format_confidence(_get_value(analysis, 'confidence', default='명시되지 않음'))}",
                 _get_value(
                     analysis,
                     "not_investment_advice",
@@ -163,8 +165,10 @@ def _build_html_analysis_section(index: int, analysis: dict) -> str:
     safe_url = html.escape(url, quote=True)
     visible_url = html.escape(url)
     summary = html.escape(_get_value(analysis, "summary"))
+    basis_label = html.escape(_analysis_basis_label(analysis))
+    basis_notice = html.escape(_analysis_basis_notice(analysis))
     confidence = html.escape(
-        _get_value(analysis, "confidence", default="명시되지 않음")
+        _format_confidence(_get_value(analysis, "confidence", default="명시되지 않음"))
     )
     advice_notice = html.escape(
         _get_value(
@@ -178,11 +182,13 @@ def _build_html_analysis_section(index: int, analysis: dict) -> str:
     <section>
       <h2>영상 {index}: {title}</h2>
       <p><strong>영상 URL:</strong> <a href="{safe_url}">{visible_url}</a></p>
+      <p><strong>분석 기준:</strong> {basis_label}</p>
+      <p>{basis_notice}</p>
       <p><strong>요약:</strong> {summary}</p>
       <h3>언급 종목</h3>
-      {_format_html_list(_stock_lines(analysis))}
+      {_format_html_list(_stock_lines(analysis), "명확히 언급된 종목 없음")}
       <h3>언급 섹터</h3>
-      {_format_html_list(_sector_lines(analysis))}
+      {_format_html_list(_sector_lines(analysis), "명확히 언급된 섹터 없음")}
       <h3>언급 이유</h3>
       {_format_html_list(_reason_lines(analysis))}
       <h3>리스크</h3>
@@ -281,21 +287,64 @@ def _format_stock_item(item: dict, label: str) -> str:
     )
 
 
-def _format_plain_list(items: list[str]) -> str:
+def _format_plain_list(
+    items: list[str],
+    empty_message: str = "명확히 언급되지 않음",
+) -> str:
     """Format a list for plain text email."""
 
     if not items:
-        return "- 명확히 언급되지 않음"
+        return f"- {empty_message}"
     return "\n".join(f"- {item}" for item in items)
 
 
-def _format_html_list(items: list[str]) -> str:
+def _format_html_list(
+    items: list[str],
+    empty_message: str = "명확히 언급되지 않음",
+) -> str:
     """Format a list for HTML email."""
 
     if not items:
-        return "<ul><li>명확히 언급되지 않음</li></ul>"
+        return f"<ul><li>{html.escape(empty_message)}</li></ul>"
     escaped_items = "\n".join(f"<li>{html.escape(item)}</li>" for item in items)
     return f"<ul>{escaped_items}</ul>"
+
+
+def _analysis_basis_label(analysis: dict) -> str:
+    """Return a Korean label for the analysis basis."""
+
+    basis = _string_value(analysis.get("analysis_basis"))
+    labels = {
+        "transcript": "자막 기반",
+        "gemini_youtube_url": "Gemini YouTube URL 직접 분석",
+        "metadata_plus_comments": "제목/설명/태그/댓글 기반 제한 분석",
+        "metadata_only": "제목/설명/태그 기반 제한 분석",
+    }
+    return labels.get(basis, "분석 기준 미확인")
+
+
+def _analysis_basis_notice(analysis: dict) -> str:
+    """Return a user-facing notice for the analysis basis."""
+
+    basis = _string_value(analysis.get("analysis_basis"))
+    if basis == "gemini_youtube_url":
+        return "자막 수집은 실패했지만 Gemini가 영상 URL을 직접 분석했습니다."
+    if basis == "metadata_plus_comments":
+        return (
+            "영상 본문 직접 분석은 실패했고, 제목/설명/태그/댓글을 활용한 제한 분석입니다. "
+            "댓글은 영상 발언이 아니라 보조 단서입니다."
+        )
+    if basis == "metadata_only":
+        return "영상 본문 직접 분석과 댓글 분석이 실패해 제목/설명/태그만 기반으로 한 제한 분석입니다."
+    if basis == "transcript":
+        return "YouTube 자막/대본을 기반으로 분석했습니다."
+    return "분석 기준 정보가 없습니다."
+
+
+def _format_confidence(confidence: str) -> str:
+    """Highlight low confidence."""
+
+    return "LOW - 주의 필요" if confidence.lower() == "low" else confidence
 
 
 def _get_value(analysis: dict, *keys: str, default: str = "명확히 언급되지 않음") -> str:
@@ -334,4 +383,3 @@ def _join_non_empty(values: list[str], separator: str) -> str:
     """Join non-empty strings."""
 
     return separator.join(value for value in values if value)
-
