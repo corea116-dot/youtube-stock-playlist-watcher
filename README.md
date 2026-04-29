@@ -120,6 +120,7 @@ GitHub Actions 환경에서는 YouTube 자막 접근이 자주 실패할 수 있
 ## Gemini 분석 기능
 
 public YouTube URL을 Google Gemini API에 직접 보내 영상에서 언급된 종목/섹터/이유/리스크를 구조화합니다.
+가능한 경우 Gemini structured output의 JSON schema 설정을 함께 사용해 `mentioned_stocks`와 `mentioned_sectors`가 안정적으로 채워지도록 합니다.
 
 현재 분석 함수:
 
@@ -148,6 +149,7 @@ analyze_video(
 
 - 이 기능은 투자 조언을 새로 만들지 않습니다.
 - 영상에 없는 종목, 티커, 매수/매도 판단, 목표가를 추측하지 않도록 프롬프트를 구성했습니다.
+- Gemini structured output / JSON schema를 사용해 응답 구조가 흔들리는 문제를 줄입니다.
 - 영상에서 단순히 언급된 종목/섹터도 구조화 목록에 넣도록 프롬프트를 강화했습니다.
 - 삼성전자, SK하이닉스, 반도체, 자동차, 화학, 철강, 조선처럼 요약에 등장한 항목이 표에서 누락되지 않도록 구조화 결과를 보정합니다.
 - Gemini YouTube URL 직접 분석은 public YouTube 영상에서만 동작합니다.

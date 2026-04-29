@@ -105,15 +105,37 @@ def _analyze_with_youtube_url(
                     types.Part(text=prompt),
                 ]
             ),
-            config=types.GenerateContentConfig(
-                response_mime_type="application/json",
-                temperature=0.1,
-            ),
+            config=_build_generate_content_config(types),
         )
     except Exception as exc:
         raise AnalysisError("Gemini YouTube URL 직접 분석 요청에 실패했습니다.") from exc
 
     return _parse_gemini_response(response, video)
+
+
+def _build_generate_content_config(types: Any) -> Any:
+    """Build Gemini generation config with structured JSON output when supported."""
+
+    schema = _response_json_schema()
+    base_config = {
+        "response_mime_type": "application/json",
+        "temperature": 0.1,
+    }
+
+    for schema_field in ("response_json_schema", "response_schema"):
+        try:
+            return types.GenerateContentConfig(
+                **base_config,
+                **{schema_field: schema},
+            )
+        except TypeError:
+            continue
+
+    logger.warning(
+        "현재 google-genai 버전에서 response schema 설정을 사용할 수 없어 "
+        "JSON mime type과 강화 프롬프트만 사용합니다."
+    )
+    return types.GenerateContentConfig(**base_config)
 
 
 def _load_gemini_modules() -> tuple[Any, Any]:
@@ -429,6 +451,111 @@ def _prompt_analysis_schema(video: dict) -> dict[str, Any]:
         "watch_points": [],
         "overall_notes": [],
         "disclaimer": "이 내용은 영상에서 언급된 내용을 요약한 것이며 투자 조언이 아닙니다.",
+    }
+
+
+def _response_json_schema() -> dict[str, Any]:
+    """Return a JSON Schema for Gemini structured output."""
+
+    sentiment_schema = {
+        "type": "string",
+        "enum": ["positive", "negative", "neutral", "mixed", "uncertain"],
+    }
+    confidence_schema = {
+        "type": "string",
+        "enum": ["high", "medium", "low"],
+    }
+    stock_schema = {
+        "type": "object",
+        "properties": {
+            "name": {"type": "string"},
+            "ticker": {"type": "string"},
+            "market": {"type": "string"},
+            "sentiment": sentiment_schema,
+            "reason": {"type": "string"},
+            "risk": {"type": "string"},
+            "confidence": confidence_schema,
+        },
+        "required": [
+            "name",
+            "ticker",
+            "market",
+            "sentiment",
+            "reason",
+            "risk",
+            "confidence",
+        ],
+        "propertyOrdering": [
+            "name",
+            "ticker",
+            "market",
+            "sentiment",
+            "reason",
+            "risk",
+            "confidence",
+        ],
+    }
+    sector_schema = {
+        "type": "object",
+        "properties": {
+            "name": {"type": "string"},
+            "sentiment": sentiment_schema,
+            "reason": {"type": "string"},
+            "risk": {"type": "string"},
+            "confidence": confidence_schema,
+        },
+        "required": ["name", "sentiment", "reason", "risk", "confidence"],
+        "propertyOrdering": ["name", "sentiment", "reason", "risk", "confidence"],
+    }
+    return {
+        "type": "object",
+        "properties": {
+            "video_title": {"type": "string"},
+            "video_url": {"type": "string"},
+            "analysis_basis": {"type": "string", "enum": [ANALYSIS_BASIS]},
+            "summary": {"type": "string"},
+            "market_view": {
+                "type": "object",
+                "properties": {
+                    "overall_tone": sentiment_schema,
+                    "reason": {"type": "string"},
+                },
+                "required": ["overall_tone", "reason"],
+                "propertyOrdering": ["overall_tone", "reason"],
+            },
+            "mentioned_stocks": {"type": "array", "items": stock_schema},
+            "mentioned_sectors": {"type": "array", "items": sector_schema},
+            "key_points": {"type": "array", "items": {"type": "string"}},
+            "watch_points": {"type": "array", "items": {"type": "string"}},
+            "overall_notes": {"type": "array", "items": {"type": "string"}},
+            "disclaimer": {"type": "string"},
+        },
+        "required": [
+            "video_title",
+            "video_url",
+            "analysis_basis",
+            "summary",
+            "market_view",
+            "mentioned_stocks",
+            "mentioned_sectors",
+            "key_points",
+            "watch_points",
+            "overall_notes",
+            "disclaimer",
+        ],
+        "propertyOrdering": [
+            "video_title",
+            "video_url",
+            "analysis_basis",
+            "summary",
+            "market_view",
+            "mentioned_stocks",
+            "mentioned_sectors",
+            "key_points",
+            "watch_points",
+            "overall_notes",
+            "disclaimer",
+        ],
     }
 
 
