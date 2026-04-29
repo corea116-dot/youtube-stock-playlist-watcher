@@ -14,7 +14,6 @@ from playlist_watcher.analyzer import analyze_video
 from playlist_watcher.config import AppConfig, load_config
 from playlist_watcher.emailer import _build_email_message, _send_message
 from playlist_watcher.state import load_processed_video_ids, mark_processed
-from playlist_watcher.transcript import get_transcript_text
 from playlist_watcher.youtube import get_latest_playlist_videos
 
 
@@ -37,7 +36,6 @@ def run(
     load_config_fn: Callable[[], AppConfig] = load_config,
     fetch_videos_fn: Callable[[AppConfig], list[Video]] = get_latest_playlist_videos,
     load_processed_ids_fn: Callable[[], set[str]] = load_processed_video_ids,
-    get_transcript_fn: Callable[[str], str | None] = get_transcript_text,
     analyze_fn: Callable[[Video, str | None, AppConfig], Analysis] = analyze_video,
     send_email_fn: Callable[[list[Analysis], AppConfig], bool] | None = None,
     mark_processed_fn: Callable[[str], None] = mark_processed,
@@ -121,27 +119,16 @@ def run(
     for video in new_videos:
         video_id = video["video_id"]
         logger.info(
-            "분석 시작: playlist_id=%s, video_id=%s, 제목=%s",
+            "Gemini YouTube URL 직접 분석을 시작합니다. playlist_id=%s, video_id=%s, 제목=%s",
             video.get("playlist_id", ""),
             video_id,
             video.get("title", ""),
         )
 
         try:
-            transcript_text = get_transcript_fn(video_id)
-        except Exception as exc:
-            logger.warning(
-                "자막 수집 중 오류가 발생했지만 계속 진행합니다. video_id=%s, 이유=%s. "
-                "초보자 안내: 자막이 없어도 Gemini YouTube URL 직접 분석을 먼저 시도합니다.",
-                video_id,
-                exc,
-            )
-            transcript_text = None
-
-        try:
             analysis = analyze_fn(
                 _ensure_video_url(video),
-                transcript_text,
+                None,
                 config,
             )
         except Exception as exc:
@@ -156,7 +143,13 @@ def run(
         enriched_analysis = _attach_video_metadata(analysis, video, selected_test_mode)
         analyses.append(enriched_analysis)
         analyzed_video_ids.append(video_id)
-        logger.info("분석 완료: video_id=%s, 제목=%s", video_id, video.get("title", ""))
+        logger.info(
+            "분석 완료: video_id=%s, 제목=%s, 언급 종목 수=%s, 언급 섹터 수=%s",
+            video_id,
+            video.get("title", ""),
+            _count_mentions(enriched_analysis, "mentioned_stocks"),
+            _count_mentions(enriched_analysis, "mentioned_sectors"),
+        )
 
     if not analyses:
         logger.info(
@@ -165,7 +158,14 @@ def run(
         )
         return 0
 
-    logger.info("이메일 발송 시도 여부: true, 분석 결과 개수=%s", len(analyses))
+    total_stock_count = sum(_count_mentions(analysis, "mentioned_stocks") for analysis in analyses)
+    total_sector_count = sum(_count_mentions(analysis, "mentioned_sectors") for analysis in analyses)
+    logger.info(
+        "이메일 발송 시도 여부: true, 분석 영상 수=%s, 전체 종목 수=%s, 전체 섹터 수=%s",
+        len(analyses),
+        total_stock_count,
+        total_sector_count,
+    )
     email_sent = send_email_fn(analyses, config)
     if not email_sent:
         logger.warning("이메일 발송 성공/실패 여부: 실패")
@@ -286,6 +286,13 @@ def _count_processed_candidates(
             if video.get("video_id") in processed_video_ids
         }
     )
+
+
+def _count_mentions(analysis: Analysis, key: str) -> int:
+    """Count structured stock or sector mentions in one analysis."""
+
+    value = analysis.get(key)
+    return len(value) if isinstance(value, list) else 0
 
 
 def _select_videos_to_process(
