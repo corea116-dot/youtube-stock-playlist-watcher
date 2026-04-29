@@ -24,10 +24,7 @@ def send_analysis_email(analyses: list[dict]) -> None:
     """
 
     if not analyses:
-        logger.info(
-            "보낼 분석 결과가 없어 이메일을 보내지 않습니다. "
-            "초보자 안내: 새 영상이 없거나 분석된 영상이 없으면 정상 동작입니다."
-        )
+        logger.info("이메일을 보내지 않습니다. 이유: 분석 결과가 없습니다.")
         return
 
     try:
@@ -46,7 +43,7 @@ def send_analysis_email(analyses: list[dict]) -> None:
         )
     except Exception as exc:
         logger.warning(
-            "이메일 발송에 실패했습니다. 이유=%s. "
+            "이메일 발송 실패. 원인=%s. "
             "초보자 안내: SMTP_HOST, SMTP_PORT, SMTP_USER, SMTP_PASS, EMAIL_TO 값이 "
             "맞는지 확인하세요. Gmail을 사용한다면 일반 비밀번호가 아니라 "
             "Gmail App Password가 필요합니다.",
@@ -55,7 +52,7 @@ def send_analysis_email(analyses: list[dict]) -> None:
         return
 
     logger.info(
-        "이메일 발송에 성공했습니다. 수신자=%s, 영상 수=%s",
+        "이메일 발송 성공. 수신자=%s, 영상 수=%s",
         config.email_to,
         len(analyses),
     )
