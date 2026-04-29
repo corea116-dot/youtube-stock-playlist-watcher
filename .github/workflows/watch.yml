@@ -3,14 +3,15 @@ name: Watch YouTube Playlist
 on:
   workflow_dispatch:
     inputs:
-      force_reprocess:
-        description: "Re-analyze and email the latest video even if it was already processed"
+      test_mode:
+        description: "Manual test mode: normal, today, or latest_one"
         required: false
-        default: "false"
+        default: "normal"
         type: choice
         options:
-          - "false"
-          - "true"
+          - "normal"
+          - "today"
+          - "latest_one"
   schedule:
     # GitHub Actions cron uses UTC. 09:00 UTC = 18:00 KST.
     - cron: "0 9 * * *"
@@ -35,14 +36,14 @@ jobs:
       EMAIL_TO: ${{ secrets.EMAIL_TO }}
       MAX_VIDEOS_TO_CHECK: ${{ secrets.MAX_VIDEOS_TO_CHECK }}
       GEMINI_MODEL: ${{ secrets.GEMINI_MODEL }}
-      FORCE_REPROCESS: ${{ github.event.inputs.force_reprocess || 'false' }}
+      TEST_MODE: ${{ github.event.inputs.test_mode || 'normal' }}
 
     steps:
       - name: Explain run
         run: |
           echo "Starting YouTube playlist watcher."
           echo "This workflow checks for new videos, sends email only when analysis succeeds, and saves processed video IDs."
-          echo "FORCE_REPROCESS=${FORCE_REPROCESS}"
+          echo "TEST_MODE=${TEST_MODE}"
           echo "Secret values are passed through GitHub Secrets and are not printed."
 
       - name: Check out repository
